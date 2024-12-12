@@ -1,0 +1,356 @@
+********************************************************VERIFY AADHAR NUMBER******************************************************************************
+public function verifyAadhar(Request $request)
+    {
+        $request->validate([
+            'aadharNumber' => 'required|string|size:12',
+        ]);
+
+        $aadharNumber = $request->input('aadharNumber');
+        $signatureResponse = $this->generateSignature();
+        if ($signatureResponse->status() !== 200) {
+            Log::error('Failed to generate signature for Aadhar verification', ['aadharNumber' => $aadharNumber]);
+            return response()->json(['error' => 'Failed to generate signature for Aadhar verification'], 500);
+        }
+
+        $signature = $signatureResponse->getData()->signature;
+        // dd($signature);
+        try {
+            $response = Http::withHeaders([
+                'x-cf-signature'  => $signature,
+                'Content-Type'    => 'application/json',
+                'x-client-id'     => 'CF528309CTBTE3DRK9GS73FEP9L0',
+                'x-client-secret' => 'cfsk_ma_prod_999c2669ff989b5806ce38d72a12d1ca_029c0c17',
+                'accept'          => 'application/json'
+            ])->post('https://api.cashfree.com/verification/offline-aadhaar/otp', [
+                'aadhaar_number' => $aadharNumber,
+            ]);
+            if ($response->successful()) {
+                $responseData = $response->json(); 
+                if (isset($responseData['status']) && $responseData['status'] === "SUCCESS") {
+                    // GST is valid
+                    return response()->json([
+                        'success'       => true,
+                        'message'       => 'Otp sent successfully',
+                        'ref_id'  => $responseData['ref_id'] ?? 'N/A',
+                    ], 200);
+                } else {
+                    // GST is invalid
+                    return response()->json([
+                        'success'   => false,
+                        'message'   => 'Invalid Aadhar number',
+                        'details'   => $responseData
+                    ], 400); // 400 Bad Request
+                }
+            } else {
+                // Log the error for debugging purposes
+                Log::error('GST verification failed', [
+                    'gstin'   => $aadharNumber,
+                    'status'  => $response->status(),
+                    'details' => $response->json()
+                ]);
+        
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to verify Aadhar Number',
+                    'details' => $response->json()
+                ], $response->status());
+            }
+
+        } catch (\Exception $e) {
+            Log::error('An error occurred during Aadhar Number verification', [
+                'gstin'     => $aadharNumber,
+                'exception' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error'   => 'An error occurred during the request',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+**************************************************************************VERIFY AADHAR OTP****************************************************************************************   
+public function verifyAadharOtp(Request $request)
+    {
+        // dd($request->all());
+        $request->validate([
+            'aadharOtp' => 'required|string|size:6',
+            'ref_id' => 'required',
+        ]);
+
+        $aadharOtp = $request->input('aadharOtp');
+        $ref_id = $request->ref_id;
+        $signatureResponse = $this->generateSignature();
+        if ($signatureResponse->status() !== 200) {
+            Log::error('Failed to generate signature for Aadhar verification', ['aadharNumber' => $aadharOtp]);
+            return response()->json(['error' => 'Failed to generate signature for Aadhar verification'], 500);
+        }
+
+        $signature = $signatureResponse->getData()->signature;
+// dd($signature);
+        try {
+            $response = Http::withHeaders([
+                'x-cf-signature'  => $signature,
+                'Content-Type'    => 'application/json',
+                'x-client-id'     => 'CF528309CTBTE3DRK9GS73FEP9L0',
+                'x-client-secret' => 'cfsk_ma_prod_999c2669ff989b5806ce38d72a12d1ca_029c0c17',
+                'accept'          => 'application/json'
+            ])->post('https://api.cashfree.com/verification/offline-aadhaar/verify', [
+                'otp' => $aadharOtp,
+                'ref_id' => $ref_id, 
+            ]);
+            if ($response->successful()) {
+                $responseData = $response->json(); 
+// dd($responseData);
+                if (isset($responseData['status']) && $responseData['status'] === "VALID") {
+                    // GST is valid
+                    return response()->json([
+                        'success'       => true,
+                        'message'       => 'Aadhar Number Verified Successfully.',
+                        
+                    ], 200);
+                } else {
+                    // GST is invalid
+                    return response()->json([
+                        'success'   => false,
+                        'message'   => 'Invalid Aadhar number',
+                        'details'   => $responseData
+                    ], 400); // 400 Bad Request
+                }
+            } else {
+                // Log the error for debugging purposes
+                Log::error('GST verification failed', [
+                    'gstin'   => $aadharOtp,
+                    'status'  => $response->status(),
+                    'details' => $response->json()
+                ]);
+        
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to verify Aadhar Number',
+                    'details' => $response->json()
+                ], $response->status());
+            }
+
+        } catch (\Exception $e) {
+            Log::error('An error occurred during Aadhar Number verification', [
+                'gstin'     => $aadharOtp,
+                'exception' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error'   => 'An error occurred during the request',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+**************************************************************************END VERIFY AADHAR****************************************************************************************
+
+    public function verifyPAN(Request $request)
+    {
+        // dd($request->all());
+        $request->validate([
+            'PAN_number' => 'required|string|size:10',
+        ]);
+
+        $PAN_number = $request->input('PAN_number');
+        $signatureResponse = $this->generateSignature();
+
+        if ($signatureResponse->status() !== 200) {
+            Log::error('Failed to generate signature for PAN verification', ['gstin' => $PAN_number]);
+            return response()->json(['error' => 'Failed to generate signature for PAN verification'], 500);
+        }
+
+        $signature = $signatureResponse->getData()->signature;
+// dd($signature);
+        try {
+            $response = Http::withHeaders([
+                'x-cf-signature'  => $signature,
+                'Content-Type'    => 'application/json',
+                'x-client-id'     => 'CF528309CTBTE3DRK9GS73FEP9L0',
+                'x-client-secret' => 'cfsk_ma_prod_999c2669ff989b5806ce38d72a12d1ca_029c0c17',
+                'accept'          => 'application/json'
+            ])->post('https://api.cashfree.com/verification/document/pan', [
+                'verification_id' => $PAN_number,
+            ]);
+            // dd($response);
+            if ($response->successful()) {
+                $responseData = $response->json(); 
+
+                if (isset($responseData['valid']) && $responseData['valid'] === true) {
+                    // GST is valid
+                    return response()->json([
+                        'success'       => true,
+                        'message'       => 'PAN verified successfully',
+                    ], 200);
+                } else {
+                    // GST is invalid
+                    return response()->json([
+                        'success'   => false,
+                        'message'   => 'Invalid PAN number',
+                        'details'   => $responseData
+                    ], 400); // 400 Bad Request
+                }
+            } else {
+                // Log the error for debugging purposes
+                Log::error('PAN verification failed', [
+                    'gstin'   => $PAN_number,
+                    'status'  => $response->status(),
+                    'details' => $response->json()
+                ]);
+        
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to verify PAN',
+                    'details' => $response->json()
+                ], $response->status());
+            }
+
+        } catch (\Exception $e) {
+            Log::error('An error occurred during GST verification', [
+                'gstin'     => $PAN_number,
+                'exception' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error'   => 'An error occurred during the request',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+****************************************************************************VERIFY GST NUMBER******************************************************************************************
+    public function verifyGst(Request $request)
+    {
+        // dd($request->all());
+        $request->validate([
+            'gstin' => 'required|string|size:15',
+        ]);
+
+        $gstin = $request->input('gstin');
+        $signatureResponse = $this->generateSignature();
+
+        if ($signatureResponse->status() !== 200) {
+            Log::error('Failed to generate signature for GST verification', ['gstin' => $gstin]);
+            return response()->json(['error' => 'Failed to generate signature for GST verification'], 500);
+        }
+
+        $signature = $signatureResponse->getData()->signature;
+// dd($signature);
+        try {
+            $response = Http::withHeaders([
+                'x-cf-signature'  => $signature,
+                'Content-Type'    => 'application/json',
+                'x-client-id'     => 'CF528309CTBTE3DRK9GS73FEP9L0',
+                'x-client-secret' => 'cfsk_ma_prod_999c2669ff989b5806ce38d72a12d1ca_029c0c17',
+                'accept'          => 'application/json'
+            ])->post('https://api.cashfree.com/verification/gstin', [
+                'GSTIN' => $gstin,
+            ]);
+            if ($response->successful()) {
+                $responseData = $response->json(); 
+// dd($responseData);
+                if (isset($responseData['valid']) && $responseData['valid'] === true) {
+                    // GST is valid
+                    return response()->json([
+                        'success'       => true,
+                        'message'       => 'GST verified successfully',
+                        'businessName'  => $responseData['legal_name_of_business'] ?? 'N/A',
+                    ], 200);
+                } else {
+                    // GST is invalid
+                    return response()->json([
+                        'success'   => false,
+                        'message'   => 'Invalid GST number',
+                        'details'   => $responseData
+                    ], 400); // 400 Bad Request
+                }
+            } else {
+                // Log the error for debugging purposes
+                Log::error('GST verification failed', [
+                    'gstin'   => $gstin,
+                    'status'  => $response->status(),
+                    'details' => $response->json()
+                ]);
+        
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to verify GST',
+                    'details' => $response->json()
+                ], $response->status());
+            }
+
+        } catch (\Exception $e) {
+            Log::error('An error occurred during GST verification', [
+                'gstin'     => $gstin,
+                'exception' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error'   => 'An error occurred during the request',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+****************************************************************************VERIFY GST NUMBER******************************************************************************************
+
+****************************************************************************GENERATE SIGNATURE******************************************************************************************
+
+    public function generateSignature()
+    {
+        $clientId = "CF528309CTBTE3DRK9GS73FEP9L0";
+        $publicKeyPath = storage_path('oauth-public.key');
+
+        if (!file_exists($publicKeyPath)) {
+            Log::error('Public key file not found at: ' . $publicKeyPath);
+            return response()->json(['error' => 'Public key not found'], 500);
+        }
+
+        $publicKey = file_get_contents($publicKeyPath);
+
+        if (!$publicKey) {
+            Log::error('Failed to read the public key file.');
+            return response()->json(['error' => 'Failed to read public key'], 500);
+        }
+
+        $publicKeyResource = openssl_pkey_get_public($publicKey);
+
+        if (!$publicKeyResource) {
+            Log::error('Invalid public key format.');
+            return response()->json(['error' => 'Invalid public key format'], 500);
+        }
+
+        $encodedData = $clientId . '.' . time();
+        $signature = $this->encryptRSA($encodedData, $publicKeyResource);
+
+        if ($signature === null) {
+            Log::error('Failed to generate signature');
+            return response()->json(['error' => 'Failed to generate signature'], 500);
+        }
+
+        return response()->json(['signature' => $signature], 200);
+    }
+
+    private function encryptRSA($plainData, $publicKeyResource)
+    {
+        try {
+            $encrypted = '';
+            $success = openssl_public_encrypt($plainData, $encrypted, $publicKeyResource, OPENSSL_PKCS1_OAEP_PADDING);
+            openssl_free_key($publicKeyResource);
+
+            if ($success) {
+                return base64_encode($encrypted);
+            } else {
+                Log::error('RSA encryption failed.');
+                return null;
+            }
+        } catch (\Exception $e) {
+            Log::error('Exception during RSA encryption: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+****************************************************************************END GENERATE SIGNATURE******************************************************************************************
